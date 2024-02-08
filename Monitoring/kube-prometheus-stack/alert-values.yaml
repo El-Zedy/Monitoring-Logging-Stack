@@ -1,0 +1,167 @@
+## Provide custom recording or alerting rules to be deployed into the cluster.
+additionalPrometheusRulesMap:
+  prometheus.rules:
+    groups:
+      - name: custom-rules # Can be changed
+        rules:
+          - alert: NodeCountHighAlert
+            annotations:
+              description: The number of nodes are ({{ $value }})
+              summary: 'Node count high'
+            expr: count(kube_node_info) > 3 # Can be changed
+            for: 1m
+            labels:
+              severity: custom-rules
+          - alert: NodeMemoryLowAlert
+            annotations:
+              description: Node memory is filling up and there's {{ $value | printf "%.2f" }}% of memory left
+              summary: Node memory low (< 15% left on instance {{ $labels.instance }})
+            expr: node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"} * 100 < 20 # avaiable less than, should be 20
+            for: 15m # 15m
+            labels:
+              severity: custom-rules
+          - alert: NodeCpuLoadHighAlert
+            annotations:
+              description: CPU load is at {{ $value | printf "%.2f" }}%
+              summary: Node CPU load high (> 80% on instance {{ $labels.instance }})
+            expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total {job="node-exporter",mode="idle"}[5m])) * 100) > 80
+            for: 15m
+            labels:
+              severity: custom-rules
+          - alert: NodeDiskSpaceLowAlert
+            annotations:
+              description: Node disk is filling up and there's {{ $value |  printf "%.2f" }}% of disk left
+              summary: Node disk space low (< 15% left on instance {{ $labels.instance }})
+            expr: node_filesystem_free_bytes{job="node-exporter", mountpoint ="/"} / node_filesystem_size_bytes{job="node-exporter",mountpoint="/"} * 100 < 15
+            for: 15m
+            labels:
+              severity: custom-rules         
+          - alert: PodContainerOOMKilledAlert
+            annotations:
+              description: 'Container {{ $labels.container }} in pod {{ $labels.exported_namespace }}/{{ $labels.exported_pod }} has been killed as a result of running out of memory (OOMKilled) {{ printf "%.2f" $value }} time(s) in the last 5 minutes.'
+              summary: A pod container was OOMKilled
+            expr: rate(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) * 60 * 5 > 0
+            for: 5m
+            labels:
+              severity: custom-rules
+          - alert: NodeDiskPressureAlert
+            annotations:
+              description: "{{ $labels.node }} - DiskPressure condition is true"
+              summary: Node disk pressure on instance {{ $labels.instance }}
+            expr: kube_node_status_condition{condition="DiskPressure", status="true"} > 0
+            for: 5m
+            labels:
+              severity: custom-rules
+          - alert: NodeMemoryPressureAlert
+            annotations:
+              description: "{{ $labels.node }} - MemoryPressure condition is true"
+              summary: Node memory pressure on instance {{ $labels.instance }}
+            expr: kube_node_status_condition{condition="MemoryPressure", status="true"} > 0
+            for: 5m
+            labels:
+              severity: custom-rules
+          - alert: NodeNotReadyAlert
+            annotations:
+              description: "{{ $labels.node }} - Ready condition is false"
+              summary: Node Not Ready (instance {{ $labels.instance }})
+            expr: kube_node_status_condition{condition="Ready", status="false"} > 0
+            for: 5m
+            labels:
+              severity: custom-rules
+
+alertmanager:
+  enabled: true
+  config:
+    global:
+      resolve_timeout: 5m
+    inhibit_rules:
+      #If a critical alert is active, any warning or info alerts with the same namespace and alert name will be silenced.
+      - source_matchers:
+          - 'severity = critical'
+        target_matchers:
+          - 'severity =~ warning|info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'severity = warning'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      #If an "InfoInhibitor" alert is triggered in the "payment-processing" namespace, any info-level alerts within that same namespace will be silenced.
+      - source_matchers:
+          - 'alertname = InfoInhibitor'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+      - target_matchers:
+          - 'alertname = InfoInhibitor'
+    route:
+      group_by: ['namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+      - receiver: 'null'
+        matchers:
+          - alertname = "Watchdog"
+      - receiver: 'Critical'
+        matchers:
+          - severity = "critical"
+      - receiver: 'Warning'
+        matchers:
+          - severity = "warning"
+      - receiver: 'Custom'
+        matchers:
+          - alertname =~ "NodeCountHighAlert|NodeMemoryLowAlert|NodeCpuLoadHighAlert|NodeDiskSpaceLowAlert|PodContainerOOMKilledAlert|NodeDiskPressureAlert|NodeMemoryPressureAlert|NodeNotReadyAlert"
+    receivers:
+    - name: 'null'
+    - name: 'Critical'
+      slack_configs:
+        - channel: "prometheus-alertmanager-critical"
+          api_url: '<SLACK_CHANNEL_URL>'
+          send_resolved: true
+          title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Event Notification'
+          text: >-
+                {{ range .Alerts }}
+                  *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+                  *Description:* {{ .Annotations.description }}
+                  *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+                  *Details:*
+                  {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+                  {{ end }}
+                {{ end }}  
+    - name: 'Warning'
+      slack_configs:
+        - channel: "prometheus-alertmanager-warning"
+          api_url: '<SLACK_CHANNEL_URL>'
+          send_resolved: true
+          title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Event Notification'
+          text: >-
+                {{ range .Alerts }}
+                  *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+                  *Description:* {{ .Annotations.description }}
+                  *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+                  *Details:*
+                  {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+                  {{ end }}
+                {{ end }}
+    - name: 'Custom'
+      slack_configs:
+        - channel: "prometheus-alertmanager-custom"
+          api_url: '<SLACK_CHANNEL_URL>'
+          send_resolved: true
+          title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Event Notification'
+          text: >-
+                {{ range .Alerts }}
+                  *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+                  *Description:* {{ .Annotations.description }}
+                  *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+                  *Details:*
+                  {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+                  {{ end }}
+                {{ end }}

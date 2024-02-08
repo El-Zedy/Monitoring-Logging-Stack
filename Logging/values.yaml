@@ -1,0 +1,38 @@
+loki:
+  image:
+    tag: 2.9.3
+  enabled: true
+  isDefault: false  
+  tolerations:
+  - <put here if needed>
+  nodeSelector:
+    put here if needed>
+  persistence:
+    enabled: true
+    existingClaim: loki-efs-pvc #from volumes.yaml
+  securityContext:
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
+  config:
+    chunk_store_config:
+      max_look_back_period: 0s
+      chunk_cache_config:
+        embedded_cache:
+          enabled: true
+          max_size_mb: 500
+          ttl: 24h
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 7d
+
+promtail:
+  enabled: true
+  image:
+    tag: main
+  tolerations:
+  - <put here if needed>
+  config:
+    clients:
+      - url: http://<$LOKI_SERVICE_NAME>:3100/loki/api/v1/push
+        tenant_id: 1

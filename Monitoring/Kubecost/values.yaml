@@ -1,0 +1,115 @@
+global:
+  prometheus:
+    enabled: false
+    fqdn: http://<$PROMETHEUS_SERVICE_NAME>:9090
+    nodeExporter:
+      enabled: false
+
+  grafana:
+    enabled: false 
+    proxy: false
+    scheme: "https"
+    domainName: <$GRAFANA_URL>
+
+  notifications:
+    alertmanager:
+      enabled: false
+      fqdn: http://<$ALERT-MANAGER_SERVICE_NAME>:9093
+    
+    # REF for Alerts >> https://docs.kubecost.com/using-kubecost/navigating-the-kubecost-ui/alerts
+    alertConfigs:
+      globalSlackWebhookUrl: <$SLACK_WEBHOOK_URL>
+      alerts:
+        # Daily namespace budget alert on namespaces
+        - type: budget
+          threshold: 50
+          window: 9d
+          aggregation: namespace
+          filter: '*'
+
+        # Recurring weekly update (weeklyUpdate alert)
+        - type: recurringUpdate
+          window: 7d        # or 7d
+          aggregation: namespace
+          filter: '*'
+        
+        # Health Score Alert 
+        - type: health
+          window: 10m
+          threshold: 10
+
+        # Kubecost Health Diagnostic
+        - type: diagnostic
+          window: 10m
+          diagnostics: 
+            prometheusUp: true
+            cAdvisor: true
+            ksm: true
+            kubecost: true 
+            nodeExporter: true
+            scrapeInterval: true
+            cpuThrottling: true
+            clusterJoinLeave: true
+
+        # Spend Change Alert
+        - type: spendChange
+          relativeThreshold: 0.20
+          window: 1d
+          baselineWindow: 30d
+          aggregation: namespace
+          filter: '*'
+
+  securityContext:
+    runAsNonRoot: false
+    runAsGroup: 0
+    runAsUser: 0
+
+kubecostProductConfigs:
+  grafanaURL: <$GRAFANA_URL>
+  clusterName: <$CLUSTER_NAME>
+
+kubecostDeployment:
+  statefulSet:
+    enabled: true
+
+kubecostFrontend:
+  enabled: true
+  securityContext:
+    readOnlyRootFilesystem: false
+
+serviceMonitor:
+  enabled: true
+  networkCosts:
+    enabled: true
+prometheusRule:
+  enabled: true
+
+prometheus:
+  nodeExporter:
+    enabled: false
+  serviceAccounts:
+    nodeExporter:
+      create: false
+  kubeStateMetrics:
+    enabled: false
+
+alertmanager:
+  enabled: false
+  persistentVolume:
+    enabled: false
+
+
+persistentVolume:
+  enabled: false
+networkCosts:
+  enabled: true
+  prometheusScrape: true
+  config:
+    services:
+      amazon-web-services: true
+ingress:
+  enabled: true
+  paths: ["/"]
+  pathType: ImplementationSpecific
+  hosts:
+    - <$INGRESS_DOMAIN>

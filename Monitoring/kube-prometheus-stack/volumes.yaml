@@ -1,0 +1,80 @@
+###################### PVs #########################
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-efs-pv
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: <STORAGECLASS_NAME>
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: <EFS_ID>
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: loki-efs-pv
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: <STORAGECLASS_NAME>
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: <EFS_ID>
+
+---
+
+##################### PVCs #########################
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-efs-pvc
+  namespace: monitoring-logging
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: <STORAGECLASS_NAME>
+  resources:
+    requests:
+      storage: "20Gi"
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-efs-pvc
+  namespace: monitoring-logging
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: <STORAGECLASS_NAME>
+  resources:
+    requests:
+      storage: "20Gi"
+---
+
+##################### StorageClass #########################
+
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: monitoring-dynamic-efs-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: <EFS_ID>
+  directoryPerms: "777"
