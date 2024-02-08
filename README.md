@@ -192,7 +192,7 @@ Special thanks to the following organizations and individuals for their contribu
 
 - GitHub: GitHub serves as the collaborative platform for hosting and managing the Monitoring & Logging Stack project. The contribution workflow and version control provided by GitHub greatly facilitate the development process.
 
-- The valuable contributions of [Muhammad Gamal](https://github.com/muhammedgamal760) & [Ahmed Khaled](https://github.com/ahmedKhaled1995) A dedicated project contributor, Muhammad Gamal's teamwork and contributions have significantly enhanced the quality and success of the Monitoring & Logging Stack setup.
+- [Muhammad Gamal](https://github.com/muhammedgamal760) & [Ahmed Khaled](https://github.com/ahmedKhaled1995): A dedicated project contributor, Muhammad Gamal's teamwork and contributions have significantly enhanced the quality and success of the Monitoring & Logging Stack setup.
 
 ### Contact:
 
