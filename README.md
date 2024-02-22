@@ -196,7 +196,7 @@ Special thanks to the following organizations and individuals for their contribu
 
 ### Contact:
 
-For any questions, suggestions, or feedback regarding this project, feel free to contact the project owner at:
+For any questions, suggestions, or feedback regarding this project, feel free to contact the project owners at:
 
 - Muhammad Elzedy: muhammadhassanelzedy@gmail.com
 - Muhammad Gamal: muhammedgamal760@gmail.com
